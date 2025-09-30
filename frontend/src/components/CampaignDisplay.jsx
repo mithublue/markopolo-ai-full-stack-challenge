@@ -1,9 +1,30 @@
+/**
+ * CAMPAIGN DISPLAY COMPONENT
+ * ==========================
+ * 
+ * This component displays the generated campaign data in a beautiful, user-friendly format.
+ * It handles both streaming (real-time) and complete campaign displays.
+ * 
+ * Features:
+ * - Real-time streaming display with typing animation
+ * - Beautiful campaign summary with key metrics
+ * - Expandable JSON view for technical details
+ * - Copy-to-clipboard functionality
+ * - Responsive design with Tailwind CSS
+ * 
+ * Props:
+ * - content: The streaming or complete JSON content
+ * - isStreaming: Boolean indicating if content is still streaming
+ * - completeData: The final parsed campaign data object
+ */
+
 import React, { useState } from 'react';
 import { Copy, Check, ChevronDown, ChevronUp, Sparkles } from 'lucide-react';
 
 const CampaignDisplay = ({ content, isStreaming, completeData }) => {
-  const [copied, setCopied] = useState(false);
-  const [isExpanded, setIsExpanded] = useState(true);
+  // State for UI interactions
+  const [copied, setCopied] = useState(false);              // Track if JSON was copied to clipboard
+  const [isExpanded, setIsExpanded] = useState(true);      // Track if JSON section is expanded
 
   const handleCopy = () => {
     navigator.clipboard.writeText(content);

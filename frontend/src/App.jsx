@@ -1,50 +1,105 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Send, Database, MessageSquare, Zap, CheckCircle2, AlertCircle } from 'lucide-react';
-import ChatMessage from './components/ChatMessage';
-import DataSourceCard from './components/DataSourceCard';
-import TypingIndicator from './components/TypingIndicator';
-import { generateSessionId } from './utils/helpers';
+/**
+ * MARKOPOLO AI - MAIN APPLICATION COMPONENT
+ * ========================================
+ * 
+ * This is the main React component for the Markopolo AI Campaign Intelligence Platform.
+ * It provides a Perplexity-like chat interface with the following features:
+ * 
+ * Key Features:
+ * - Interactive chat interface with real-time streaming
+ * - Data source connection (Facebook Pixel, Shopify, Google Ads)
+ * - Channel selection (Email, SMS, WhatsApp, Ads)
+ * - AI-powered campaign generation with streaming JSON output
+ * - Session management and state persistence
+ * - Beautiful UI with Tailwind CSS styling
+ * 
+ * Architecture:
+ * - React 18 with hooks (useState, useEffect, useRef)
+ * - Server-Sent Events (SSE) for real-time streaming
+ * - REST API integration with backend
+ * - Component-based architecture with reusable components
+ */
 
+// Import React hooks and utilities
+import React, { useState, useEffect, useRef } from 'react';
+
+// Import Lucide React icons for UI elements
+import { Send, Database, MessageSquare, Zap, CheckCircle2, AlertCircle } from 'lucide-react';
+
+// Import custom components
+import ChatMessage from './components/ChatMessage';           // Individual chat message component
+import DataSourceCard from './components/DataSourceCard';   // Data source card component
+import TypingIndicator from './components/TypingIndicator'; // Typing animation component
+import { generateSessionId } from './utils/helpers';        // Session ID generator utility
+
+// API base URL - uses environment variable or defaults to localhost
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
 
 function App() {
-  const [sessionId] = useState(generateSessionId());
-  const [messages, setMessages] = useState([]);
-  const [inputValue, setInputValue] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [connectedSources, setConnectedSources] = useState([]);
-  const [availableSources, setAvailableSources] = useState([]);
-  const [selectedChannels, setSelectedChannels] = useState([]);
-  const [isStreaming, setIsStreaming] = useState(false);
-  const messagesEndRef = useRef(null);
-  const eventSourceRef = useRef(null);
+  // ========== STATE MANAGEMENT ==========
+  // =====================================
+  
+  // Session management - unique ID for each user session
+  const [sessionId] = useState(generateSessionId());           // Persistent session ID
+  
+  // Chat interface state
+  const [messages, setMessages] = useState([]);               // Array of chat messages
+  const [inputValue, setInputValue] = useState('');            // Current input field value
+  const [isLoading, setIsLoading] = useState(false);          // Loading state for API calls
+  const [isStreaming, setIsStreaming] = useState(false);     // Streaming state for SSE
+  
+  // Data source management
+  const [connectedSources, setConnectedSources] = useState([]);      // Currently connected sources
+  const [availableSources, setAvailableSources] = useState([]);      // Available data sources from API
+  
+  // Channel selection state
+  const [selectedChannels, setSelectedChannels] = useState([]);       // User-selected marketing channels
+  
+  // React refs for DOM manipulation and cleanup
+  const messagesEndRef = useRef(null);                        // Reference to scroll to bottom
+  const eventSourceRef = useRef(null);                        // Reference to SSE connection for cleanup
 
+  // ========== EFFECT HOOKS ==========
+  // ===================================
+  
+  // Component initialization and cleanup
   useEffect(() => {
-    fetchDataSources();
+    fetchDataSources();                                        // Load available data sources on mount
+    
+    // Cleanup function - close SSE connection when component unmounts
     return () => {
       if (eventSourceRef.current) {
-        eventSourceRef.current.close();
+        eventSourceRef.current.close();                       // Prevent memory leaks
       }
     };
-  }, []);
+  }, []);                                                     // Run only once on mount
 
+  // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+    scrollToBottom();                                         // Smooth scroll to latest message
+  }, [messages]);                                             // Run whenever messages change
 
+  // ========== UTILITY FUNCTIONS ==========
+  // ======================================
+  
+  // Smooth scroll to bottom of chat messages
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });  // Smooth scroll animation
   };
 
+  // ========== API FUNCTIONS ==========
+  // ====================================
+  
+  // Fetch available data sources from backend API
   const fetchDataSources = async () => {
     try {
       console.log('Fetching data sources from:', `${API_BASE}/data-sources`);
-      const response = await fetch(`${API_BASE}/data-sources`);
-      const data = await response.json();
+      const response = await fetch(`${API_BASE}/data-sources`);        // GET request to backend
+      const data = await response.json();                              // Parse JSON response
       console.log('Data sources received:', data);
-      setAvailableSources(data);
+      setAvailableSources(data);                                        // Update state with sources
     } catch (error) {
-      console.error('Error fetching data sources:', error);
+      console.error('Error fetching data sources:', error);             // Handle API errors
     }
   };
 
@@ -81,17 +136,20 @@ function App() {
     }
   };
 
+  // Toggle channel selection (Email, SMS, WhatsApp, Ads)
   const handleSelectChannel = (channelId) => {
     setSelectedChannels(prev => {
       if (prev.includes(channelId)) {
-        return prev.filter(id => id !== channelId);
+        return prev.filter(id => id !== channelId);              // Remove if already selected
       } else {
-        return [...prev, channelId];
+        return [...prev, channelId];                              // Add if not selected
       }
     });
   };
 
+  // Generate AI-powered campaign with real-time streaming
   const handleGenerateCampaign = async (campaignType = 'general') => {
+    // Validate that user has connected data sources
     if (connectedSources.length === 0) {
       const warningMessage = {
         id: Date.now(),
@@ -103,6 +161,7 @@ function App() {
       return;
     }
 
+    // Validate that user has selected marketing channels
     if (selectedChannels.length === 0) {
       const warningMessage = {
         id: Date.now(),

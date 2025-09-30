@@ -1,44 +1,74 @@
-const express = require('express');
-const cors = require('cors');
-const { v4: uuidv4 } = require('uuid');
-require('dotenv').config();
+/**
+ * MARKOPOLO AI - BACKEND SERVER
+ * =============================
+ * 
+ * This is the main backend server for the Markopolo AI Campaign Intelligence Platform.
+ * It provides REST API endpoints and real-time streaming capabilities using Server-Sent Events (SSE).
+ * 
+ * Key Features:
+ * - Express.js REST API with CORS support
+ * - Server-Sent Events for real-time JSON streaming
+ * - Session management for multiple users
+ * - Mock data sources (Facebook Pixel, Shopify, Google Ads)
+ * - AI-powered campaign generation with intelligent channel selection
+ * - Real-time campaign streaming with character-by-character output
+ */
 
+// Import required dependencies
+const express = require('express');           // Web framework for Node.js
+const cors = require('cors');                 // Cross-Origin Resource Sharing middleware
+const { v4: uuidv4 } = require('uuid');      // UUID generator for unique session IDs
+require('dotenv').config();                   // Environment variables loader
+
+// Initialize Express application
 const app = express();
-const PORT = process.env.PORT || 5001;
+const PORT = process.env.PORT || 5001;        // Server port (default: 5001)
 
-// Middleware
-app.use(cors());
-app.use(express.json());
+// Configure middleware
+app.use(cors());                              // Enable CORS for all routes (allows frontend to connect)
+app.use(express.json());                      // Parse JSON request bodies
 
 // In-memory storage for demo purposes
-const sessions = new Map();
+// In production, this would be replaced with a database (Redis, MongoDB, etc.)
+const sessions = new Map();                    // Store user sessions: sessionId -> { connectedSources: [], selectedChannels: [] }
 
-// Data source configurations
+/**
+ * DATA SOURCES CONFIGURATION
+ * ===========================
+ * 
+ * Mock data sources that simulate real integrations with external platforms.
+ * Each source contains realistic data that would be available from actual APIs.
+ * 
+ * In production, these would be replaced with real API integrations:
+ * - Facebook Pixel API for user tracking data
+ * - Shopify Admin API for e-commerce metrics
+ * - Google Ads API for advertising performance data
+ */
 const DATA_SOURCES = {
   'facebook-pixel': {
     name: 'Facebook Pixel',
     type: 'tracking',
     mockData: {
-      activeUsers: 15420,
-      pageViews: 45230,
-      conversionRate: 3.2,
-      topPages: ['/products', '/checkout', '/about'],
-      demographics: { age: '25-34', gender: 'Mixed', location: 'US, UK, CA' }
+      activeUsers: 15420,                    // Total active users tracked
+      pageViews: 45230,                      // Total page views
+      conversionRate: 3.2,                   // Conversion rate percentage
+      topPages: ['/products', '/checkout', '/about'],  // Most visited pages
+      demographics: { age: '25-34', gender: 'Mixed', location: 'US, UK, CA' }  // User demographics
     }
   },
   'shopify': {
     name: 'Shopify',
     type: 'ecommerce',
     mockData: {
-      totalCustomers: 8450,
-      activeProducts: 234,
-      averageOrderValue: 85.50,
-      topProducts: ['Wireless Earbuds', 'Smart Watch', 'Phone Case'],
-      recentOrders: 1250,
-      customerSegments: {
-        highValue: 850,
-        returning: 3200,
-        new: 4400
+      totalCustomers: 8450,                  // Total customer count
+      activeProducts: 234,                   // Number of active products
+      averageOrderValue: 85.50,              // Average order value in USD
+      topProducts: ['Wireless Earbuds', 'Smart Watch', 'Phone Case'],  // Best-selling products
+      recentOrders: 1250,                    // Recent orders count
+      customerSegments: {                    // Customer segmentation data
+        highValue: 850,                      // High-value customers
+        returning: 3200,                     // Returning customers
+        new: 4400                           // New customers
       }
     }
   },
@@ -57,84 +87,107 @@ const DATA_SOURCES = {
   }
 };
 
-// Channel configurations
+/**
+ * CHANNEL CONFIGURATIONS
+ * ======================
+ * 
+ * Available marketing channels with their characteristics and performance metrics.
+ * Each channel has different strengths and use cases for campaign delivery.
+ */
 const CHANNELS = {
   email: {
     name: 'Email',
-    bestFor: ['detailed content', 'newsletters', 'product launches'],
-    avgEngagement: 22.5,
-    cost: 'low'
+    bestFor: ['detailed content', 'newsletters', 'product launches'],  // Best use cases
+    avgEngagement: 22.5,                                              // Average engagement rate %
+    cost: 'low'                                                        // Cost level: low/medium/high
   },
   sms: {
     name: 'SMS',
-    bestFor: ['urgent messages', 'flash sales', 'time-sensitive'],
-    avgEngagement: 45.3,
-    cost: 'medium'
+    bestFor: ['urgent messages', 'flash sales', 'time-sensitive'],     // Best for urgent communications
+    avgEngagement: 45.3,                                              // High engagement rate
+    cost: 'medium'                                                    // Medium cost level
   },
   whatsapp: {
     name: 'WhatsApp',
-    bestFor: ['personal engagement', 'customer support', 'order updates'],
-    avgEngagement: 38.7,
-    cost: 'medium'
+    bestFor: ['personal engagement', 'customer support', 'order updates'],  // Personal communication
+    avgEngagement: 38.7,                                                  // High engagement
+    cost: 'medium'                                                        // Medium cost
   },
   ads: {
     name: 'Ads',
-    bestFor: ['broad reach', 'brand awareness', 'retargeting'],
-    avgEngagement: 12.8,
-    cost: 'high'
+    bestFor: ['broad reach', 'brand awareness', 'retargeting'],         // Wide reach campaigns
+    avgEngagement: 12.8,                                              // Lower engagement but wide reach
+    cost: 'high'                                                       // High cost for broad reach
   }
 };
 
-// API Routes
+/**
+ * API ROUTES
+ * ==========
+ * 
+ * REST API endpoints for the Markopolo AI platform.
+ * All routes are prefixed with /api for organization.
+ */
 
-// Health check
+// Health check endpoint - used to verify server is running
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// Get available data sources
+// Get available data sources - returns list of all available data sources
 app.get('/api/data-sources', (req, res) => {
+  // Transform DATA_SOURCES object into array format for frontend
   const sources = Object.keys(DATA_SOURCES).map(key => ({
-    id: key,
-    name: DATA_SOURCES[key].name,
-    type: DATA_SOURCES[key].type
+    id: key,                                    // Unique identifier
+    name: DATA_SOURCES[key].name,              // Display name
+    type: DATA_SOURCES[key].type               // Source type (tracking, ecommerce, advertising)
   }));
   res.json(sources);
 });
 
-// Get available channels
+// Get available channels - returns list of all marketing channels
 app.get('/api/channels', (req, res) => {
+  // Transform CHANNELS object into array format for frontend
   const channels = Object.keys(CHANNELS).map(key => ({
-    id: key,
-    name: CHANNELS[key].name,
-    bestFor: CHANNELS[key].bestFor
+    id: key,                                    // Channel identifier
+    name: CHANNELS[key].name,                  // Display name
+    bestFor: CHANNELS[key].bestFor              // Use cases for this channel
   }));
   res.json(channels);
 });
 
-// Connect to a data source
+/**
+ * Connect to a data source
+ * 
+ * This endpoint simulates connecting to an external data source.
+ * In production, this would authenticate with the actual API and store credentials.
+ */
 app.post('/api/connect', (req, res) => {
-  const { sessionId, source } = req.body;
+  const { sessionId, source } = req.body;        // Extract session ID and source from request
   
+  // Validate that the requested source exists
   if (!DATA_SOURCES[source]) {
     return res.status(400).json({ error: 'Invalid data source' });
   }
 
+  // Create new session if it doesn't exist
   if (!sessions.has(sessionId)) {
     sessions.set(sessionId, { connectedSources: [], createdAt: Date.now() });
   }
 
-  const session = sessions.get(sessionId);
+  const session = sessions.get(sessionId);       // Get existing session
   
+  // Add source to connected sources if not already connected
   if (!session.connectedSources.includes(source)) {
     session.connectedSources.push(source);
   }
 
+  // Return success response with source data
   res.json({
     success: true,
-    source: DATA_SOURCES[source].name,
-    mockData: DATA_SOURCES[source].mockData,
-    connectedSources: session.connectedSources.map(s => DATA_SOURCES[s].name)
+    source: DATA_SOURCES[source].name,           // Source display name
+    mockData: DATA_SOURCES[source].mockData,     // Mock data from source
+    connectedSources: session.connectedSources.map(s => DATA_SOURCES[s].name)  // All connected sources
   });
 });
 
@@ -166,49 +219,76 @@ app.get('/api/generate-campaign', (req, res) => {
   streamJSONResponse(req, res, campaign);
 });
 
-// Helper function to generate campaign
+/**
+ * Generate Campaign Helper Function
+ * ================================
+ * 
+ * This function creates AI-powered campaign recommendations based on:
+ * - Connected data sources (Facebook Pixel, Shopify, Google Ads)
+ * - Campaign type (general, flash-sale, product-launch)
+ * - User-selected channels (Email, SMS, WhatsApp, Ads)
+ * 
+ * It aggregates data from all sources and uses intelligent algorithms
+ * to recommend the optimal channel, timing, message, and audience.
+ */
 function generateCampaign(connectedSources, campaignType, selectedChannels = []) {
-  const campaignId = uuidv4();
-  const timestamp = new Date().toISOString();
+  const campaignId = uuidv4();                              // Generate unique campaign ID
+  const timestamp = new Date().toISOString();               // Current timestamp
   
   // Aggregate insights from connected sources
-  let totalAudience = 0;
-  let insights = [];
+  let totalAudience = 0;                                    // Total audience size across all sources
+  let insights = [];                                         // Data-driven insights array
   
+  // Process each connected data source to extract insights and audience data
   connectedSources.forEach(source => {
-    const data = DATA_SOURCES[source].mockData;
+    const data = DATA_SOURCES[source].mockData;              // Get mock data for this source
+    
+    // Process Facebook Pixel data
     if (source === 'facebook-pixel') {
-      totalAudience += data.activeUsers;
-      insights.push(`High engagement on ${data.topPages.join(', ')}`);
-      insights.push(`Primary demographic: ${data.demographics.age} from ${data.demographics.location}`);
-    } else if (source === 'shopify') {
-      totalAudience += data.totalCustomers;
-      insights.push(`${data.customerSegments.highValue} high-value customers identified`);
-      insights.push(`Top products: ${data.topProducts.join(', ')}`);
-      insights.push(`Average order value: $${data.averageOrderValue}`);
-    } else if (source === 'google-ads') {
-      insights.push(`Strong performance on keywords: ${data.topKeywords.slice(0, 2).join(', ')}`);
-      insights.push(`Current CTR: ${data.ctr}% with ${data.conversions} conversions`);
+      totalAudience += data.activeUsers;                     // Add to total audience
+      insights.push(`High engagement on ${data.topPages.join(', ')}`);  // Page engagement insight
+      insights.push(`Primary demographic: ${data.demographics.age} from ${data.demographics.location}`);  // Demographics
+    } 
+    // Process Shopify e-commerce data
+    else if (source === 'shopify') {
+      totalAudience += data.totalCustomers;                 // Add customers to audience
+      insights.push(`${data.customerSegments.highValue} high-value customers identified`);  // Customer segments
+      insights.push(`Top products: ${data.topProducts.join(', ')}`);  // Product performance
+      insights.push(`Average order value: $${data.averageOrderValue}`);  // Revenue insights
+    } 
+    // Process Google Ads performance data
+    else if (source === 'google-ads') {
+      insights.push(`Strong performance on keywords: ${data.topKeywords.slice(0, 2).join(', ')}`);  // Keyword performance
+      insights.push(`Current CTR: ${data.ctr}% with ${data.conversions} conversions`);  // Ad performance
     }
   });
 
-  // Intelligent channel selection based on campaign type, data, and user selection
-  let selectedChannel = 'email'; // default
-  let channelReasoning = '';
+  // INTELLIGENT CHANNEL SELECTION ALGORITHM
+  // ======================================
+  // This algorithm selects the optimal channel based on:
+  // 1. User's selected channels (if any)
+  // 2. Campaign type and requirements
+  // 3. Channel performance characteristics
+  let selectedChannel = 'email';                              // Default fallback channel
+  let channelReasoning = '';                                   // Explanation for channel choice
   
-  // If user has selected channels, use them; otherwise use intelligent selection
+  // If user has selected channels, use intelligent selection from their choices
   if (selectedChannels.length > 0) {
-    // Use user's selected channels - pick the best one based on campaign type
+    // Optimize channel selection based on campaign type and user preferences
     if (campaignType === 'flash-sale' || campaignType === 'urgent') {
+      // For urgent campaigns, prioritize SMS for immediate delivery
       selectedChannel = selectedChannels.includes('sms') ? 'sms' : selectedChannels[0];
       channelReasoning = `Using your selected channel: ${selectedChannel} (optimized for urgency)`;
     } else if (campaignType === 'product-launch' || campaignType === 'detailed') {
+      // For detailed campaigns, prioritize Email for rich content
       selectedChannel = selectedChannels.includes('email') ? 'email' : selectedChannels[0];
       channelReasoning = `Using your selected channel: ${selectedChannel} (optimized for detailed content)`;
     } else if (campaignType === 'retargeting' || campaignType === 'awareness') {
+      // For broad reach campaigns, prioritize Ads for maximum visibility
       selectedChannel = selectedChannels.includes('ads') ? 'ads' : selectedChannels[0];
       channelReasoning = `Using your selected channel: ${selectedChannel} (optimized for broad reach)`;
     } else {
+      // Use first selected channel for general campaigns
       selectedChannel = selectedChannels[0];
       channelReasoning = `Using your selected channel: ${selectedChannel}`;
     }
@@ -408,32 +488,52 @@ function getPlatformsForChannel(channel) {
   return platforms[channel] || [];
 }
 
+/**
+ * Server-Sent Events (SSE) Streaming Function
+ * =========================================
+ * 
+ * This function creates the real-time streaming effect by sending JSON data
+ * character by character, simulating AI typing like ChatGPT.
+ * 
+ * How it works:
+ * 1. Converts campaign data to formatted JSON string
+ * 2. Sends 50-character chunks every 50ms
+ * 3. Creates smooth typing animation effect
+ * 4. Handles client disconnection gracefully
+ */
 function streamJSONResponse(req, res, data) {
-  const jsonString = JSON.stringify(data, null, 2);
-  let index = 0;
+  const jsonString = JSON.stringify(data, null, 2);           // Format JSON with 2-space indentation
+  let index = 0;                                              // Current position in JSON string
   
+  // Create interval to send chunks at regular intervals
   const interval = setInterval(() => {
     if (index < jsonString.length) {
-      // Send chunks of 50 characters at a time
+      // Send chunks of 50 characters at a time for smooth streaming
       const chunk = jsonString.slice(index, index + 50);
-      res.write(`data: ${JSON.stringify({ chunk, done: false })}\n\n`);
-      index += 50;
+      res.write(`data: ${JSON.stringify({ chunk, done: false })}\n\n`);  // SSE format
+      index += 50;                                            // Move to next chunk
     } else {
-      // Send completion signal
+      // Send completion signal with full campaign data
       res.write(`data: ${JSON.stringify({ chunk: '', done: true, complete: data })}\n\n`);
-      clearInterval(interval);
-      res.end();
+      clearInterval(interval);                                 // Stop streaming
+      res.end();                                              // Close connection
     }
-  }, 50); // Stream every 50ms for smooth effect
+  }, 50);                                                     // Stream every 50ms for smooth effect
 
-  // Handle client disconnect
+  // Handle client disconnect to prevent memory leaks
   req.on('close', () => {
-    clearInterval(interval);
-    res.end();
+    clearInterval(interval);                                  // Stop streaming
+    res.end();                                                // Close connection
   });
 }
 
-// Start server
+/**
+ * START SERVER
+ * ============
+ * 
+ * Initialize and start the Express server on the specified port.
+ * Uses 'localhost' instead of '0.0.0.0' to avoid Windows permission issues.
+ */
 app.listen(PORT, 'localhost', () => {
   console.log(`🚀 Markopolo AI Backend running on http://localhost:${PORT}`);
   console.log(`📊 Environment: ${process.env.NODE_ENV}`);

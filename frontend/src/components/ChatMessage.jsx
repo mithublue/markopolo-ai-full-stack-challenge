@@ -1,10 +1,28 @@
+/**
+ * CHAT MESSAGE COMPONENT
+ * =====================
+ * 
+ * This component renders individual chat messages in the conversation.
+ * It handles three types of messages:
+ * - User messages (right-aligned, blue background)
+ * - Assistant messages (left-aligned, gray background)
+ * - Campaign messages (special display with CampaignDisplay component)
+ * 
+ * Features:
+ * - Perplexity-style message bubbles
+ * - Different styling for user vs assistant
+ * - Special handling for campaign data
+ * - Message formatting and icons
+ */
+
 import React from 'react';
-import { Bot, User } from 'lucide-react';
-import CampaignDisplay from './CampaignDisplay';
+import { Bot, User } from 'lucide-react';                    // Icons for message types
+import CampaignDisplay from './CampaignDisplay';            // Special component for campaign data
 
 const ChatMessage = ({ message }) => {
-  const isUser = message.type === 'user';
-  const isCampaign = message.type === 'campaign';
+  // Determine message type for conditional rendering
+  const isUser = message.type === 'user';                   // User message (right side)
+  const isCampaign = message.type === 'campaign';           // Campaign message (special display)
 
   if (isCampaign) {
     return (
