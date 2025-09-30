@@ -9,14 +9,7 @@ const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
 
 function App() {
   const [sessionId] = useState(generateSessionId());
-  const [messages, setMessages] = useState([
-    {
-      id: 1,
-      type: 'assistant',
-      content: "👋 Hello! I'm your AI Marketing Campaign Assistant. I can help you create data-driven campaigns by connecting to your data sources and selecting your preferred channels.\n\nTo get started:\n1. **Connect data sources** from the sidebar (Facebook Pixel, Shopify, Google Ads)\n2. **Select channels** you want to use (Email, SMS, WhatsApp, Ads)\n3. **Generate campaigns** using the quick action buttons\n\nLet's create some amazing campaigns! 🚀",
-      timestamp: new Date()
-    }
-  ]);
+  const [messages, setMessages] = useState([]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [connectedSources, setConnectedSources] = useState([]);
@@ -267,18 +260,19 @@ function App() {
   };
 
   return (
-    <div className="flex h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-      {/* Sidebar */}
+    <div className="flex h-screen bg-white">
+      {/* Left Sidebar */}
       <div className="w-80 bg-white border-r border-gray-200 flex flex-col">
         <div className="p-6 border-b border-gray-200">
           <div className="flex items-center gap-2 mb-2">
             <Zap className="w-6 h-6 text-primary-600" />
-            <h1 className="text-xl font-bold text-gray-900">Markopolo AI</h1>
+            <h1 className="text-xl font-bold text-gray-900">markopolo</h1>
           </div>
-          <p className="text-sm text-gray-600">Campaign Intelligence Platform</p>
+          <p className="text-sm text-gray-600">AI Campaign Intelligence</p>
         </div>
 
         <div className="flex-1 overflow-y-auto p-4">
+          {/* Data Sources */}
           <div className="mb-6">
             <h2 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
               <Database className="w-4 h-4" />
@@ -289,17 +283,37 @@ function App() {
                 <div className="text-sm text-gray-500 p-3">Loading data sources...</div>
               ) : (
                 availableSources.map(source => (
-                  <DataSourceCard
+                  <button
                     key={source.id}
-                    source={source}
-                    isConnected={connectedSources.includes(source.id)}
-                    onConnect={() => handleConnectSource(source.id)}
-                  />
+                    onClick={() => handleConnectSource(source.id)}
+                    disabled={connectedSources.includes(source.id)}
+                    className={`w-full text-left p-3 rounded-lg border-2 transition-all ${
+                      connectedSources.includes(source.id)
+                        ? 'bg-green-50 border-green-500'
+                        : 'bg-white border-gray-200 hover:border-primary-300 hover:bg-primary-50'
+                    } ${connectedSources.includes(source.id) ? 'cursor-default' : 'cursor-pointer'}`}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-medium text-sm text-gray-900">{source.name}</span>
+                      {connectedSources.includes(source.id) ? (
+                        <CheckCircle2 className="w-4 h-4 text-green-600" />
+                      ) : (
+                        <div className="w-4 h-4 border-2 border-gray-300 rounded-full"></div>
+                      )}
+                    </div>
+                    <span className="text-xs text-gray-600 capitalize">{source.type}</span>
+                    {connectedSources.includes(source.id) && (
+                      <div className="mt-2 text-xs text-green-700 font-medium">
+                        ✓ Connected
+                      </div>
+                    )}
+                  </button>
                 ))
               )}
             </div>
           </div>
 
+          {/* Channels */}
           <div className="mb-6">
             <h2 className="text-sm font-semibold text-gray-700 mb-3">Available Channels</h2>
             <div className="grid grid-cols-2 gap-2">
@@ -329,43 +343,19 @@ function App() {
             )}
           </div>
 
-          <div>
-            <h2 className="text-sm font-semibold text-gray-700 mb-3">Quick Actions</h2>
-            <div className="space-y-2">
-              <button
-                onClick={() => handleGenerateCampaign('general')}
-                disabled={connectedSources.length === 0 || selectedChannels.length === 0 || isStreaming}
-                className="w-full btn-primary text-sm"
-              >
-                Generate Campaign
-              </button>
-              <button
-                onClick={() => handleGenerateCampaign('flash-sale')}
-                disabled={connectedSources.length === 0 || selectedChannels.length === 0 || isStreaming}
-                className="w-full btn-secondary text-sm"
-              >
-                Flash Sale Campaign
-              </button>
-              <button
-                onClick={() => handleGenerateCampaign('product-launch')}
-                disabled={connectedSources.length === 0 || selectedChannels.length === 0 || isStreaming}
-                className="w-full btn-secondary text-sm"
-              >
-                Product Launch
-              </button>
+          {/* Status */}
+          <div className="bg-gray-50 rounded-lg p-3">
+            <div className="text-xs text-gray-600 space-y-1">
+              <p className="font-semibold">Status:</p>
+              <p>Sources: {connectedSources.length}/3</p>
+              <p>Channels: {selectedChannels.length}/4</p>
+              <p className="text-xs text-gray-500 mt-2">Session: {sessionId.slice(0, 8)}...</p>
             </div>
-          </div>
-        </div>
-
-        <div className="p-4 border-t border-gray-200 bg-gray-50">
-          <div className="text-xs text-gray-600">
-            <p className="font-semibold mb-1">Connected: {connectedSources.length}/3</p>
-            <p>Session ID: {sessionId.slice(0, 8)}...</p>
           </div>
         </div>
       </div>
 
-      {/* Main Chat Area */}
+      {/* Main Content Area */}
       <div className="flex-1 flex flex-col">
         {/* Header */}
         <div className="bg-white border-b border-gray-200 px-6 py-4">
@@ -379,60 +369,164 @@ function App() {
                 Right message · Right channel · Right time · Right audience
               </p>
             </div>
-            <div className="flex items-center gap-2">
-              {connectedSources.length > 0 && (
-                <div className="flex items-center gap-1 px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">
-                  <CheckCircle2 className="w-3 h-3" />
-                  {connectedSources.length} source(s) connected
-                </div>
-              )}
-              {selectedChannels.length > 0 && (
-                <div className="flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">
-                  <CheckCircle2 className="w-3 h-3" />
-                  {selectedChannels.length} channel(s) selected
-                </div>
-              )}
+            <div className="flex items-center gap-4">
+              {/* Quick Action Buttons - Always Visible */}
+              <div className="flex gap-2">
+                <button
+                  onClick={() => handleGenerateCampaign('general')}
+                  disabled={connectedSources.length === 0 || selectedChannels.length === 0 || isStreaming}
+                  className="px-3 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-full text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Generate Campaign
+                </button>
+                <button
+                  onClick={() => handleGenerateCampaign('flash-sale')}
+                  disabled={connectedSources.length === 0 || selectedChannels.length === 0 || isStreaming}
+                  className="px-3 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-full text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Flash Sale
+                </button>
+                <button
+                  onClick={() => handleGenerateCampaign('product-launch')}
+                  disabled={connectedSources.length === 0 || selectedChannels.length === 0 || isStreaming}
+                  className="px-3 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-full text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Product Launch
+                </button>
+              </div>
+              
+              {/* Status Indicators */}
+              <div className="flex items-center gap-2">
+                {connectedSources.length > 0 && (
+                  <div className="flex items-center gap-1 px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">
+                    <CheckCircle2 className="w-3 h-3" />
+                    {connectedSources.length} source(s) connected
+                  </div>
+                )}
+                {selectedChannels.length > 0 && (
+                  <div className="flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">
+                    <CheckCircle2 className="w-3 h-3" />
+                    {selectedChannels.length} channel(s) selected
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Messages Area */}
-        <div className="flex-1 overflow-y-auto px-6 py-4">
-          <div className="max-w-4xl mx-auto space-y-4">
-            {messages.map(message => (
-              <ChatMessage key={message.id} message={message} />
-            ))}
-            {isLoading && <TypingIndicator />}
-            <div ref={messagesEndRef} />
-          </div>
+        {/* Main Content */}
+        <div className="flex-1 overflow-y-auto">
+          {messages.length === 0 ? (
+            /* Landing Page - Perplexity Style */
+            <div className="max-w-4xl mx-auto px-6 py-16">
+              <div className="text-center">
+                <h1 className="text-4xl font-bold text-gray-900 mb-4">markopolo</h1>
+                <p className="text-lg text-gray-600 mb-12">AI-powered marketing campaign intelligence</p>
+                
+                {/* Main Search Input - Perplexity Style */}
+                <div className="relative max-w-2xl mx-auto mb-8">
+                  <form onSubmit={handleSendMessage} className="relative">
+                    <input
+                      type="text"
+                      value={inputValue}
+                      onChange={(e) => setInputValue(e.target.value)}
+                      placeholder="Ask anything about your marketing campaigns..."
+                      disabled={isLoading || isStreaming}
+                      className="w-full px-6 py-4 text-lg border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed shadow-sm"
+                    />
+                    <button
+                      type="submit"
+                      disabled={!inputValue.trim() || isLoading || isStreaming}
+                      className="absolute right-2 top-1/2 transform -translate-y-1/2 p-2 bg-primary-600 text-white rounded-xl hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      <Send className="w-5 h-5" />
+                    </button>
+                  </form>
+                </div>
+
+                {/* Quick Action Pills - Perplexity Style */}
+                <div className="flex flex-wrap justify-center gap-3 mb-12">
+                  <button
+                    onClick={() => handleGenerateCampaign('general')}
+                    disabled={connectedSources.length === 0 || selectedChannels.length === 0 || isStreaming}
+                    className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-full text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Generate Campaign
+                  </button>
+                  <button
+                    onClick={() => handleGenerateCampaign('flash-sale')}
+                    disabled={connectedSources.length === 0 || selectedChannels.length === 0 || isStreaming}
+                    className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-full text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Flash Sale
+                  </button>
+                  <button
+                    onClick={() => handleGenerateCampaign('product-launch')}
+                    disabled={connectedSources.length === 0 || selectedChannels.length === 0 || isStreaming}
+                    className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-full text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Product Launch
+                  </button>
+                </div>
+
+                {/* Setup Instructions */}
+                <div className="max-w-2xl mx-auto">
+                  <div className="bg-gray-50 rounded-2xl p-6">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Get Started</h3>
+                    <div className="text-left space-y-3">
+                      <p className="text-sm text-gray-600">
+                        1. <strong>Connect data sources</strong> from the left sidebar (Facebook Pixel, Shopify, Google Ads)
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        2. <strong>Select channels</strong> you want to use (Email, SMS, WhatsApp, Ads)
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        3. <strong>Generate campaigns</strong> using the buttons above or type in the search box
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            /* Chat Interface */
+            <div className="max-w-4xl mx-auto px-6 py-4">
+              <div className="space-y-6">
+                {messages.map(message => (
+                  <ChatMessage key={message.id} message={message} />
+                ))}
+                {isLoading && <TypingIndicator />}
+                <div ref={messagesEndRef} />
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Input Area */}
-        <div className="bg-white border-t border-gray-200 px-6 py-4">
-          <div className="max-w-4xl mx-auto">
-            <form onSubmit={handleSendMessage} className="flex gap-2">
-              <input
-                type="text"
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                placeholder="Type a message... (e.g., 'generate campaign', 'help')"
-                disabled={isLoading || isStreaming}
-                className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
-              />
-              <button
-                type="submit"
-                disabled={!inputValue.trim() || isLoading || isStreaming}
-                className="btn-primary px-6 flex items-center gap-2"
-              >
-                <Send className="w-4 h-4" />
-                Send
-              </button>
-            </form>
-            <p className="text-xs text-gray-500 mt-2">
-              💡 Tip: Connect data sources first, then generate campaigns for AI-powered insights
-            </p>
+        {messages.length > 0 && (
+          <div className="bg-white border-t border-gray-200 px-6 py-4">
+            <div className="max-w-4xl mx-auto">
+              <form onSubmit={handleSendMessage} className="flex gap-3">
+                <input
+                  type="text"
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
+                  placeholder="Ask anything about your marketing campaigns..."
+                  disabled={isLoading || isStreaming}
+                  className="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
+                />
+                <button
+                  type="submit"
+                  disabled={!inputValue.trim() || isLoading || isStreaming}
+                  className="px-6 py-3 bg-primary-600 text-white rounded-xl hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+                >
+                  <Send className="w-4 h-4" />
+                  Send
+                </button>
+              </form>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
